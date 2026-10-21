@@ -70,6 +70,15 @@ data class GuideEntity(
     val readTimeMinutes: Int = 3
 )
 
+data class DailyForecast(
+    val dateLabel: String,
+    val maxTempC: Double,
+    val minTempC: Double,
+    val conditionText: String,
+    val rainProbabilityPercent: Int,
+    val weatherCode: Int = 0
+)
+
 data class WeatherData(
     val locationName: String,
     val temperatureC: Double,
@@ -77,8 +86,15 @@ data class WeatherData(
     val humidityPercent: Int,
     val windSpeedKmh: Double,
     val rainProbabilityPercent: Int,
-    val farmingForecast: String
+    val farmingForecast: String,
+    val dailyForecast: List<DailyForecast> = emptyList(),
+    val isVerifiedGps: Boolean = false
 )
+
+enum class RecommendationSource {
+    AI,
+    LOCAL_RULE_BASED
+}
 
 data class CropRecommendation(
     val cropName: String,
@@ -87,7 +103,8 @@ data class CropRecommendation(
     val description: String,
     val yieldEstimate: String,
     val durationMonths: String,
-    val waterNeed: String
+    val waterNeed: String,
+    val source: RecommendationSource = RecommendationSource.AI
 )
 
 data class PlantDiseaseAnalysis(
@@ -97,7 +114,9 @@ data class PlantDiseaseAnalysis(
     val symptoms: List<String>,
     val treatmentSteps: List<String>,
     val preventionTips: List<String>,
-    val severityLevel: String
+    val severityLevel: String,
+    val isUncertain: Boolean = false,
+    val disclaimer: String = ""
 )
 
 enum class AiMessageStatus {

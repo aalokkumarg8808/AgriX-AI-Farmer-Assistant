@@ -7,9 +7,9 @@ enum class AppLanguage(val code: String, val displayName: String, val nativeName
 }
 
 object Localization {
-    
+
     fun getGreeting(language: AppLanguage, timeOfDay: TimeOfDay, userName: String): String {
-        val firstName = userName.trim().split("\\s+".toRegex()).firstOrNull() ?: "Farmer"
+        val firstName = userName.trim().split("\\s+".toRegex()).firstOrNull()?.takeIf { it.isNotBlank() } ?: "Farmer"
         return when (language) {
             AppLanguage.EN -> when (timeOfDay) {
                 TimeOfDay.MORNING -> "Good morning, $firstName!"
@@ -59,10 +59,12 @@ object Localization {
         // Weather
         "weather_title" to mapOf(AppLanguage.EN to "Weather Details", AppLanguage.HI to "मौसम विवरण", AppLanguage.PA to "ਮੌਸਮ ਦੇ ਵੇਰਵੇ"),
         "current_weather" to mapOf(AppLanguage.EN to "Current Weather", AppLanguage.HI to "वर्तमान मौसम", AppLanguage.PA to "ਮੌਜੂਦਾ ਮੌਸਮ"),
-        "weather_forecast_5days" to mapOf(AppLanguage.EN to "5-Day Forecast", AppLanguage.HI to "5-दिवसीय पूर्वानुमान", AppLanguage.PA to "5-ਦਿਨਾਂ ਦਾ ਪੂਰਵ-ਅਨੁਮਾਨ"),
+        "weather_forecast_5days" to mapOf(AppLanguage.EN to "5-Day Farming Forecast", AppLanguage.HI to "5-दिवसीय कृषि पूर्वानुमान", AppLanguage.PA to "5-ਦਿਨਾਂ ਦਾ ਖੇਤੀ ਪੂਰਵ-ਅਨੁਮਾਨ"),
         "change_location" to mapOf(AppLanguage.EN to "Change Location", AppLanguage.HI to "स्थान बदलें", AppLanguage.PA to "ਸਥਾਨ ਬਦਲੋ"),
         "refresh" to mapOf(AppLanguage.EN to "Refresh", AppLanguage.HI to "ताज़ा करें", AppLanguage.PA to "ਤਾਜ਼ਾ ਕਰੋ"),
         "weather_error" to mapOf(AppLanguage.EN to "Unable to load weather data", AppLanguage.HI to "मौसम डेटा लोड करने में असमर्थ", AppLanguage.PA to "ਮੌਸਮ ਡਾਟਾ ਲੋਡ ਕਰਨ ਵਿੱਚ ਅਸਮਰੱਥ"),
+        "gps_verified" to mapOf(AppLanguage.EN to "Live GPS Location", AppLanguage.HI to "लाइव GPS स्थान", AppLanguage.PA to "ਲਾਈਵ GPS ਸਥਾਨ"),
+        "manual_location" to mapOf(AppLanguage.EN to "Manual / Profile Location", AppLanguage.HI to "मैनुअल / प्रोफ़ाइल स्थान", AppLanguage.PA to "ਮੈਨੂਅਲ / ਪ੍ਰੋਫਾਈਲ ਸਥਾਨ"),
 
         // Crop Recommendation
         "crop_rec_title" to mapOf(AppLanguage.EN to "Crop Recommendation", AppLanguage.HI to "फसल सिफारिश", AppLanguage.PA to "ਫ਼ਸਲ ਦੀ ਸਿਫ਼ਾਰਸ਼"),
@@ -75,6 +77,18 @@ object Localization {
         "high_suitability" to mapOf(AppLanguage.EN to "High Suitability", AppLanguage.HI to "उच्च उपयुक्तता", AppLanguage.PA to "ਉੱਚ ਢੁਕਵਾਂ"),
         "moderate_suitability" to mapOf(AppLanguage.EN to "Moderate Suitability", AppLanguage.HI to "मध्यम उपयुक्तता", AppLanguage.PA to "ਦਰਮਿਆਨਾ ਢੁਕਵਾਂ"),
         "low_suitability" to mapOf(AppLanguage.EN to "Low Suitability", AppLanguage.HI to "कम उपयुक्तता", AppLanguage.PA to "ਘੱਟ ਢੁਕਵਾਂ"),
+        "source_ai" to mapOf(AppLanguage.EN to "AI-Generated Recommendation", AppLanguage.HI to "AI द्वारा जनित सिफारिश", AppLanguage.PA to "AI ਦੁਆਰਾ ਤਿਆਰ ਸਿਫ਼ਾਰਸ਼"),
+        "source_local_fallback" to mapOf(AppLanguage.EN to "Local Rule-Based Agronomic Estimate", AppLanguage.HI to "स्थानीय नियम-आधारित कृषि अनुमान", AppLanguage.PA to "ਸਥਾਨਕ ਨਿਯਮ-ਅਧਾਰਿਤ ਖੇਤੀ ਅੰਦਾਜ਼ਾ"),
+        "crop_disclaimer" to mapOf(
+            AppLanguage.EN to "Agronomic Disclaimer: Crop recommendations are general guidance. Validate against local soil health card testing and Krishi Vigyan Kendra (KVK) extension advice before sowing.",
+            AppLanguage.HI to "कृषि अस्वीकरण: फसल सिफारिशें सामान्य मार्गदर्शन हैं। बुआई से पहले स्थानीय मृदा स्वास्थ्य कार्ड परीक्षण और कृषि विज्ञान केंद्र (KVK) की सलाह से पुष्टि करें।",
+            AppLanguage.PA to "ਖੇਤੀਬਾੜੀ ਬੇਦਾਅਵਾ: ਫ਼ਸਲ ਦੀਆਂ ਸਿਫ਼ਾਰਸ਼ਾਂ ਆਮ ਸੇਧ ਹਨ। ਬੀਜਣ ਤੋਂ ਪਹਿਲਾਂ ਮਿੱਟੀ ਦੀ ਜਾਂਚ ਅਤੇ KVK ਮਾਹਿਰਾਂ ਦੀ ਸਲਾਹ ਲਓ।"
+        ),
+        "error_invalid_land_size" to mapOf(
+            AppLanguage.EN to "Please enter a valid land size between 0.1 and 100,000 acres.",
+            AppLanguage.HI to "कृपया 0.1 से 100,000 एकड़ के बीच मान्य भूमि आकार दर्ज करें।",
+            AppLanguage.PA to "ਕਿਰਪਾ ਕਰਕੇ 0.1 ਤੋਂ 100,000 ਏਕੜ ਦੇ ਵਿਚਕਾਰ ਸਹੀ ਜ਼ਮੀਨ ਦਾ ਆਕਾਰ ਦਰਜ ਕਰੋ।"
+        ),
 
         // Disease Detection
         "disease_detection_title" to mapOf(AppLanguage.EN to "Plant Disease Detection", AppLanguage.HI to "पौधों की बीमारी की पहचान", AppLanguage.PA to "ਪੌਦਿਆਂ ਦੀ ਬਿਮਾਰੀ ਦੀ ਪਛਾਣ"),

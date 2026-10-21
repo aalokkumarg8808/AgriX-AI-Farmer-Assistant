@@ -413,27 +413,43 @@ fun SettingsScreen(
     // Change Password Dialog
     if (showPasswordDialog) {
         var newPass by remember { mutableStateOf("") }
+        var passError by remember { mutableStateOf<String?>(null) }
         AlertDialog(
             onDismissRequest = { showPasswordDialog = false },
             title = { Text(Localization.getString("change_password", currentLanguage), fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Enter new local security PIN / password:", fontSize = 13.sp, color = colors.textSecondary)
+                    Text("Enter new local account password (minimum 6 characters):", fontSize = 13.sp, color = colors.textSecondary)
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = newPass,
-                        onValueChange = { newPass = it },
+                        onValueChange = {
+                            newPass = it
+                            passError = null
+                        },
                         singleLine = true,
-                        placeholder = { Text("New PIN / Password") }
+                        placeholder = { Text("New Password") }
                     )
+                    if (passError != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = passError!!, fontSize = 12.sp, color = Color(0xFFDC2626))
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    if (newPass.isNotBlank()) {
-                        Toast.makeText(context, "Local security PIN updated", Toast.LENGTH_SHORT).show()
+                    if (newPass.length < 6) {
+                        passError = "Password must be at least 6 characters"
+                    } else {
+                        viewModel.changePassword(newPass) { success, err ->
+                            if (success) {
+                                Toast.makeText(context, "Password updated", Toast.LENGTH_SHORT).show()
+                                showPasswordDialog = false
+                            } else {
+                                passError = err ?: "Failed to update password"
+                            }
+                        }
                     }
-                    showPasswordDialog = false
                 }) {
                     Text("Update", color = AgriXGreenPrimary, fontWeight = FontWeight.Bold)
                 }

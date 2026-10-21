@@ -188,9 +188,9 @@ class LocationService(private val context: Context) {
             // Fall through to Nominatim
         }
 
-        // 2. Try Nominatim Geocoding API
+        // 2. Try Nominatim Geocoding API (with caching & 1 req/sec rate limit)
         try {
-            val response = GeocodingApiClient.service.reverseGeocode(lat, lon)
+            val response = GeocodingApiClient.reverseGeocodeCached(lat, lon)
             val addr = response.address
             val place = addr?.village ?: addr?.town ?: addr?.city ?: addr?.suburb ?: addr?.county ?: addr?.stateDistrict
             val state = addr?.state ?: ""

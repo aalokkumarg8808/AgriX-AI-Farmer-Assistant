@@ -92,12 +92,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val activeAccount: StateFlow<UserAccountEntity?> = authRepo.activeAccount
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    // User Profile - Scoped to Active User
+    // User Profile - Strictly Scoped to Active Logged-In User (never leaks another user's profile when logged out)
     val userProfile: StateFlow<UserProfileEntity?> = activeAccount.flatMapLatest { account ->
         if (account != null) {
             profileRepo.getProfileForUser(account.id)
         } else {
-            profileRepo.firstProfile
+            flowOf(null)
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -105,15 +105,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _locationStatus = MutableStateFlow<LocationStatus>(LocationStatus.Initial)
     val locationStatus: StateFlow<LocationStatus> = _locationStatus.asStateFlow()
 
-    // Fields & Tasks - Scoped to Active User
+    // Fields & Tasks - Strictly Scoped to Active Logged-In User
     val farmFields: StateFlow<List<FarmFieldEntity>> = activeAccount.flatMapLatest { account ->
-        val userId = account?.id ?: 1
-        farmRepo.getFieldsForUser(userId)
+        if (account != null) {
+            farmRepo.getFieldsForUser(account.id)
+        } else {
+            flowOf(emptyList())
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val farmTasks: StateFlow<List<FarmTaskEntity>> = activeAccount.flatMapLatest { account ->
-        val userId = account?.id ?: 1
-        farmRepo.getTasksForUser(userId)
+        if (account != null) {
+            farmRepo.getTasksForUser(account.id)
+        } else {
+            flowOf(emptyList())
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Guides
@@ -156,6 +162,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var hasHandledInitialNavigation = false
 
     init {
+        // Ensure guides are seeded idempotently
+        viewModelScope.launch(Dispatchers.IO) {
+            AgriXDatabase.ensureGuidesSeeded(db)
+        }
+
         // Monitor active account for session & startup navigation
         viewModelScope.launch {
             activeAccount.collect { account ->
@@ -176,7 +187,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             userProfile.collect { profile ->
                 if (profile != null) {
-                    // Sync Language
                     if (profile.preferredLanguage.isNotBlank()) {
                         val lang = when (profile.preferredLanguage.uppercase()) {
                             "HI" -> AppLanguage.HI
@@ -185,7 +195,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         _currentLanguage.value = lang
                     }
-                    // Sync Recommendation Defaults
                     if (profile.soilType.isNotBlank()) soilTypeInput.value = profile.soilType
                     if (profile.irrigationType.isNotBlank()) waterAvailabilityInput.value = profile.irrigationType
                     if (profile.farmSizeAcres > 0) landSizeInput.value = profile.farmSizeAcres.toString()
@@ -197,6 +206,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadDeviceLocationAndWeather()
     }
 
+    private suspend fun resolveActiveUserId(): Long? {
+        return activeAccount.value?.id ?: authRepo.getActiveAccountDirect()?.id
+    }
+
+    private fun clearTransientSessionState() {
+        _aiMessages.value = emptyList()
+        _isAiLoading.value = false
+        _selectedDiseaseImage.value = null
+        _diseaseState.value = UiState.Idle
+        _cropRecState.value = UiState.Idle
+    }
+
     fun navigateTo(screen: Screen) {
         _currentScreen.value = screen
     }
@@ -206,6 +227,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val result = authRepo.createAccount(email, pass)
             result.onSuccess {
+                clearTransientSessionState()
                 onResult(true, null)
             }.onFailure {
                 onResult(false, it.message ?: "Failed to create account")
@@ -217,9 +239,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val result = authRepo.login(email, pass)
             result.onSuccess { account ->
+                clearTransientSessionState()
                 onResult(true, account.isSetupCompleted, null)
             }.onFailure {
                 onResult(false, false, it.message ?: "Invalid email or password")
+            }
+        }
+    }
+
+    fun changePassword(newPassword: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val userId = resolveActiveUserId()
+            if (userId == null) {
+                onResult(false, "Please log in to change your password")
+                return@launch
+            }
+            val result = authRepo.changePassword(userId, newPassword)
+            result.onSuccess {
+                onResult(true, null)
+            }.onFailure { e ->
+                onResult(false, e.message ?: "Failed to update password")
             }
         }
     }
@@ -238,27 +277,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         language: AppLanguage,
         onComplete: () -> Unit
     ) {
-        val currentUserId = activeAccount.value?.id ?: 1
-        val newProfile = UserProfileEntity(
-            id = currentUserId,
-            userId = currentUserId,
-            fullName = fullName,
-            farmName = farmName,
-            location = location,
-            phone = phone,
-            farmSizeAcres = farmSize,
-            primaryCrop = mainCrop,
-            otherCrops = otherCrops,
-            experienceYears = experience,
-            irrigationType = irrigation,
-            soilType = soilType,
-            preferredLanguage = language.name
-        )
-
         _currentLanguage.value = language
-
         viewModelScope.launch {
+            val currentUserId = resolveActiveUserId() ?: return@launch
+            val safeSize = if (farmSize.isFinite() && farmSize >= 0.0) farmSize else 0.0
+            val safeExp = experience.coerceAtLeast(0)
+            val newProfile = UserProfileEntity(
+                id = currentUserId,
+                userId = currentUserId,
+                fullName = fullName,
+                farmName = farmName,
+                location = location,
+                phone = phone,
+                farmSizeAcres = safeSize,
+                primaryCrop = mainCrop,
+                otherCrops = otherCrops,
+                experienceYears = safeExp,
+                irrigationType = irrigation,
+                soilType = soilType,
+                preferredLanguage = language.name
+            )
             authRepo.completeSetup(currentUserId, newProfile)
+            if (location.isNotBlank() && _weatherState.value !is UiState.Success) {
+                fetchWeatherForNamedLocation(location)
+            }
             onComplete()
         }
     }
@@ -266,16 +308,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun logout() {
         viewModelScope.launch {
             authRepo.logout()
+            clearTransientSessionState()
             _currentScreen.value = Screen.WELCOME
         }
     }
 
     fun setLanguage(lang: AppLanguage) {
         _currentLanguage.value = lang
-        val currentUserId = activeAccount.value?.id ?: 1
         viewModelScope.launch(Dispatchers.IO) {
-            val current = profileRepo.getUserProfileDirect(currentUserId) ?: UserProfileEntity(id = currentUserId, userId = currentUserId)
-            profileRepo.saveProfile(current.copy(preferredLanguage = lang.name, id = currentUserId, userId = currentUserId))
+            val currentUserId = resolveActiveUserId()
+            if (currentUserId != null) {
+                val current = profileRepo.getUserProfileDirect(currentUserId)
+                    ?: UserProfileEntity(id = currentUserId, userId = currentUserId)
+                profileRepo.saveProfile(
+                    current.copy(preferredLanguage = lang.name, id = currentUserId, userId = currentUserId)
+                )
+            }
         }
         refreshCurrentWeather()
     }
@@ -341,7 +389,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     locationName = resolvedName,
                     lat = coords.latitude,
                     lon = coords.longitude,
-                    language = _currentLanguage.value
+                    language = _currentLanguage.value,
+                    isVerifiedGps = true
                 )
                 result.onSuccess {
                     _weatherState.value = UiState.Success(it)
@@ -364,10 +413,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val coords = lastKnownCoords
         if (coords != null) {
             viewModelScope.launch {
+                val currentLocName = (_weatherState.value as? UiState.Success)?.data?.locationName ?: "Active Field"
                 val result = weatherRepo.fetchWeather(
+                    locationName = currentLocName,
                     lat = coords.latitude,
                     lon = coords.longitude,
-                    language = _currentLanguage.value
+                    language = _currentLanguage.value,
+                    isVerifiedGps = true
                 )
                 result.onSuccess {
                     _weatherState.value = UiState.Success(it)
@@ -376,22 +428,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         } else {
-            loadDeviceLocationAndWeather()
+            val profileLoc = userProfile.value?.location
+            if (!profileLoc.isNullOrBlank()) {
+                fetchWeatherForNamedLocation(profileLoc)
+            } else {
+                loadDeviceLocationAndWeather()
+            }
         }
     }
 
     fun fetchWeatherForNamedLocation(locationName: String) {
+        val trimmed = locationName.trim()
+        if (trimmed.isEmpty()) {
+            _weatherState.value = UiState.Error("Please enter a valid town or district name.")
+            return
+        }
         _weatherState.value = UiState.Loading
         viewModelScope.launch {
             val result = weatherRepo.fetchWeather(
-                locationName = locationName,
-                language = _currentLanguage.value
+                locationName = trimmed,
+                language = _currentLanguage.value,
+                isVerifiedGps = false
             )
             result.onSuccess {
                 _weatherState.value = UiState.Success(it)
             }.onFailure { e ->
                 val msg = when (e.message) {
-                    "LOCATION_UNRESOLVED" -> "Unable to find coordinates for '$locationName'. Please check spelling."
+                    "LOCATION_UNRESOLVED" -> "Unable to find coordinates for '$trimmed'. Please check spelling."
                     else -> e.message ?: "Failed to fetch weather"
                 }
                 _weatherState.value = UiState.Error(msg)
@@ -401,9 +464,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Crop Recommendations
     fun loadCropRecommendations() {
+        val land = landSizeInput.value.trim().toDoubleOrNull()
+        if (land == null || !land.isFinite() || land <= 0.0 || land > 100_000.0) {
+            _cropRecState.value = UiState.Error("INVALID_LAND_SIZE")
+            return
+        }
+
         _cropRecState.value = UiState.Loading
         viewModelScope.launch {
-            val land = landSizeInput.value.toDoubleOrNull() ?: 2.5
             val result = cropRecRepo.getRecommendations(
                 soilType = soilTypeInput.value,
                 season = seasonInput.value,
@@ -432,11 +500,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         _diseaseState.value = UiState.Loading
         viewModelScope.launch {
-            val result = diseaseRepo.analyzePlantImage(bitmap, _currentLanguage.value)
-            result.onSuccess {
-                _diseaseState.value = UiState.Success(it)
-            }.onFailure {
-                _diseaseState.value = UiState.Error(it.message ?: "Analysis failed")
+            try {
+                val result = diseaseRepo.analyzePlantImage(bitmap, _currentLanguage.value)
+                result.onSuccess {
+                    _diseaseState.value = UiState.Success(it)
+                }.onFailure { e ->
+                    val friendly = when (e.message) {
+                        "KEY_MISSING" -> Localization.getString("error_key_missing", _currentLanguage.value)
+                        "RATE_LIMIT" -> Localization.getString("error_rate_limit", _currentLanguage.value)
+                        else -> e.message ?: Localization.getString("disease_error", _currentLanguage.value)
+                    }
+                    _diseaseState.value = UiState.Error(friendly)
+                }
+            } catch (e: Exception) {
+                _diseaseState.value = UiState.Error(Localization.getString("disease_error", _currentLanguage.value))
             }
         }
     }
@@ -460,41 +537,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sendAiQuestion(userText: String) {
-        if (userText.isBlank() || _isAiLoading.value) return
+        val trimmed = userText.trim()
+        if (trimmed.isEmpty() || _isAiLoading.value) return
 
-        val userMsg = AiChatMessage(isUser = true, text = userText, status = AiMessageStatus.SUCCESS)
+        val userMsg = AiChatMessage(isUser = true, text = trimmed, status = AiMessageStatus.SUCCESS)
         _aiMessages.value = _aiMessages.value + userMsg
         _isAiLoading.value = true
 
         viewModelScope.launch {
-            val result = aiRepo.getAiResponse(userText, _aiMessages.value)
-            _isAiLoading.value = false
-            result.onSuccess { replyText ->
-                val aiMsg = AiChatMessage(
-                    isUser = false,
-                    text = replyText,
-                    status = AiMessageStatus.SUCCESS
-                )
-                _aiMessages.value = _aiMessages.value + aiMsg
-            }.onFailure { e ->
-                val errorKey = when (e.message) {
-                    "KEY_MISSING" -> "error_key_missing"
-                    "RATE_LIMIT" -> "error_rate_limit"
-                    "AUTH_ERROR" -> "error_auth"
-                    "PERMISSION_ERROR" -> "error_permission"
-                    "TIMEOUT" -> "error_timeout"
-                    "SERVER_ERROR" -> "error_server"
-                    "NO_INTERNET" -> "error_no_internet"
-                    else -> "error_server"
+            try {
+                val result = aiRepo.getAiResponse(trimmed, _aiMessages.value)
+                result.onSuccess { replyText ->
+                    val aiMsg = AiChatMessage(
+                        isUser = false,
+                        text = replyText,
+                        status = AiMessageStatus.SUCCESS
+                    )
+                    _aiMessages.value = _aiMessages.value + aiMsg
+                }.onFailure { e ->
+                    val errorKey = when (e.message) {
+                        "KEY_MISSING" -> "error_key_missing"
+                        "RATE_LIMIT" -> "error_rate_limit"
+                        "AUTH_ERROR" -> "error_auth"
+                        "PERMISSION_ERROR" -> "error_permission"
+                        "TIMEOUT" -> "error_timeout"
+                        "SERVER_ERROR" -> "error_server"
+                        "NO_INTERNET" -> "error_no_internet"
+                        else -> "error_server"
+                    }
+                    val errorText = Localization.getString(errorKey, _currentLanguage.value)
+                    val aiMsg = AiChatMessage(
+                        isUser = false,
+                        text = errorText,
+                        status = AiMessageStatus.ERROR,
+                        errorType = e.message
+                    )
+                    _aiMessages.value = _aiMessages.value + aiMsg
                 }
-                val errorText = Localization.getString(errorKey, _currentLanguage.value)
-                val aiMsg = AiChatMessage(
-                    isUser = false,
-                    text = errorText,
-                    status = AiMessageStatus.ERROR,
-                    errorType = e.message
-                )
-                _aiMessages.value = _aiMessages.value + aiMsg
+            } finally {
+                _isAiLoading.value = false
             }
         }
     }
@@ -511,48 +592,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         _isAiLoading.value = true
         viewModelScope.launch {
-            val result = aiRepo.getAiResponse(lastUserMsg.text, _aiMessages.value)
-            _isAiLoading.value = false
-            result.onSuccess { replyText ->
-                val aiMsg = AiChatMessage(
-                    isUser = false,
-                    text = replyText,
-                    status = AiMessageStatus.SUCCESS
-                )
-                _aiMessages.value = _aiMessages.value + aiMsg
-            }.onFailure { e ->
-                val errorKey = when (e.message) {
-                    "KEY_MISSING" -> "error_key_missing"
-                    "RATE_LIMIT" -> "error_rate_limit"
-                    "AUTH_ERROR" -> "error_auth"
-                    "PERMISSION_ERROR" -> "error_permission"
-                    "TIMEOUT" -> "error_timeout"
-                    "SERVER_ERROR" -> "error_server"
-                    "NO_INTERNET" -> "error_no_internet"
-                    else -> "error_server"
+            try {
+                val result = aiRepo.getAiResponse(lastUserMsg.text, _aiMessages.value)
+                result.onSuccess { replyText ->
+                    val aiMsg = AiChatMessage(
+                        isUser = false,
+                        text = replyText,
+                        status = AiMessageStatus.SUCCESS
+                    )
+                    _aiMessages.value = _aiMessages.value + aiMsg
+                }.onFailure { e ->
+                    val errorKey = when (e.message) {
+                        "KEY_MISSING" -> "error_key_missing"
+                        "RATE_LIMIT" -> "error_rate_limit"
+                        "AUTH_ERROR" -> "error_auth"
+                        "PERMISSION_ERROR" -> "error_permission"
+                        "TIMEOUT" -> "error_timeout"
+                        "SERVER_ERROR" -> "error_server"
+                        "NO_INTERNET" -> "error_no_internet"
+                        else -> "error_server"
+                    }
+                    val errorText = Localization.getString(errorKey, _currentLanguage.value)
+                    val aiMsg = AiChatMessage(
+                        isUser = false,
+                        text = errorText,
+                        status = AiMessageStatus.ERROR,
+                        errorType = e.message
+                    )
+                    _aiMessages.value = _aiMessages.value + aiMsg
                 }
-                val errorText = Localization.getString(errorKey, _currentLanguage.value)
-                val aiMsg = AiChatMessage(
-                    isUser = false,
-                    text = errorText,
-                    status = AiMessageStatus.ERROR,
-                    errorType = e.message
-                )
-                _aiMessages.value = _aiMessages.value + aiMsg
+            } finally {
+                _isAiLoading.value = false
             }
         }
     }
 
     // Farm Management
     fun addField(name: String, crop: String, area: Double, status: String) {
-        val currentUserId = activeAccount.value?.id ?: 1
         viewModelScope.launch {
+            val currentUserId = resolveActiveUserId() ?: return@launch
+            val validArea = if (area.isFinite() && area > 0.0) area else 1.0
             farmRepo.addField(
                 FarmFieldEntity(
                     userId = currentUserId,
-                    name = name,
-                    cropName = crop,
-                    areaAcres = area,
+                    name = name.trim().ifEmpty { "Field" },
+                    cropName = crop.trim().ifEmpty { "Crop" },
+                    areaAcres = validArea,
                     status = status
                 )
             )
@@ -566,12 +651,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addTask(title: String) {
-        val currentUserId = activeAccount.value?.id ?: 1
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return
         viewModelScope.launch {
+            val currentUserId = resolveActiveUserId() ?: return@launch
             farmRepo.addTask(
                 FarmTaskEntity(
                     userId = currentUserId,
-                    title = title
+                    title = trimmed
                 )
             )
         }
@@ -591,17 +678,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Profile & Settings Management
     fun saveProfile(profile: UserProfileEntity) {
-        val currentUserId = activeAccount.value?.id ?: 1
         viewModelScope.launch {
+            val currentUserId = resolveActiveUserId() ?: return@launch
             profileRepo.saveProfile(profile.copy(id = currentUserId, userId = currentUserId))
         }
     }
 
     fun deleteAccountData() {
-        val currentUserId = activeAccount.value?.id ?: 1
         viewModelScope.launch {
-            profileRepo.clearAccountData(currentUserId)
+            val currentUserId = resolveActiveUserId()
+            if (currentUserId != null) {
+                profileRepo.clearAccountData(currentUserId)
+                authRepo.deleteAccountById(currentUserId)
+            }
             authRepo.logout()
+            clearTransientSessionState()
             navigateTo(Screen.WELCOME)
         }
     }
@@ -612,9 +703,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         farmingReminders: Boolean? = null,
         cropUpdates: Boolean? = null
     ) {
-        val currentUserId = activeAccount.value?.id ?: 1
         viewModelScope.launch {
-            val current = userProfile.value ?: UserProfileEntity(id = currentUserId, userId = currentUserId)
+            val currentUserId = resolveActiveUserId() ?: return@launch
+            val current = userProfile.value
+                ?: profileRepo.getUserProfileDirect(currentUserId)
+                ?: UserProfileEntity(id = currentUserId, userId = currentUserId)
             profileRepo.saveProfile(
                 current.copy(
                     id = currentUserId,

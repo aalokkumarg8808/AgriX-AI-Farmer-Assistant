@@ -720,14 +720,15 @@ fun FieldCardItem(
     field: FarmFieldEntity,
     onClick: () -> Unit = {}
 ) {
+    val colors = LocalAgriXCustomColors.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+        color = colors.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -738,13 +739,13 @@ fun FieldCardItem(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(AgriXGreenLight),
+                    .background(colors.cardGreenBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Eco,
                     contentDescription = field.cropName,
-                    tint = AgriXGreenPrimary,
+                    tint = colors.cardGreenText,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -756,21 +757,21 @@ fun FieldCardItem(
                     text = field.name,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary
+                    color = colors.textPrimary
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${field.cropName} • ${field.areaAcres} Acres",
                     fontSize = 13.sp,
-                    color = TextSecondary
+                    color = colors.textSecondary
                 )
             }
 
             // Status Badge
             val (badgeBg, badgeText) = when (field.status.lowercase()) {
-                "growing" -> BadgeGrowingBg to BadgeGrowingText
-                "sown" -> BadgeSownBg to BadgeSownText
-                else -> BadgePreparingBg to BadgePreparingText
+                "growing" -> colors.badgeGrowingBg to colors.badgeGrowingText
+                "sown" -> colors.badgeSownBg to colors.badgeSownText
+                else -> colors.badgePreparingBg to colors.badgePreparingText
             }
 
             Surface(
@@ -791,7 +792,7 @@ fun FieldCardItem(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Details",
-                tint = TextSecondary,
+                tint = colors.textSecondary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -803,14 +804,15 @@ fun TaskRowItem(
     task: FarmTaskEntity,
     onToggle: () -> Unit
 ) {
+    val colors = LocalAgriXCustomColors.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .clickable { onToggle() },
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+        color = colors.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -823,7 +825,7 @@ fun TaskRowItem(
                     .background(if (task.isCompleted) AgriXGreenPrimary else Color.Transparent)
                     .border(
                         1.5.dp,
-                        if (task.isCompleted) AgriXGreenPrimary else BorderSubtle,
+                        if (task.isCompleted) AgriXGreenPrimary else colors.borderSubtle,
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -844,14 +846,14 @@ fun TaskRowItem(
                 text = task.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (task.isCompleted) TextSecondary else TextPrimary,
+                color = if (task.isCompleted) colors.textSecondary else colors.textPrimary,
                 modifier = Modifier.weight(1f)
             )
 
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Task details",
-                tint = TextSecondary,
+                tint = colors.textSecondary,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -864,6 +866,7 @@ fun AgriXBottomBar(
     onNavigate: (Screen) -> Unit,
     language: AppLanguage
 ) {
+    val colors = LocalAgriXCustomColors.current
     val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
     if (imeBottomPadding > 0.dp) {
         return
@@ -882,8 +885,8 @@ fun AgriXBottomBar(
                 .widthIn(max = 440.dp)
                 .height(64.dp),
             shape = RoundedCornerShape(32.dp),
-            color = Color.White,
-            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+            color = colors.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle),
             shadowElevation = 6.dp
         ) {
             Row(
@@ -956,9 +959,10 @@ private fun FloatingNavItem(
     onClick: () -> Unit,
     tag: String
 ) {
+    val colors = LocalAgriXCustomColors.current
     val activeGreen = AgriXGreenPrimary
-    val inactiveGray = Color(0xFF6B7280)
-    val activeBg = Color(0xFFDCFCE7)
+    val inactiveGray = colors.textSecondary
+    val activeBg = colors.cardGreenBg
 
     Column(
         modifier = modifier
@@ -1011,6 +1015,7 @@ private fun FloatingNavItem(
 
 @Composable
 fun LoadingStateView(message: String) {
+    val colors = LocalAgriXCustomColors.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1023,7 +1028,7 @@ fun LoadingStateView(message: String) {
         Text(
             text = message,
             fontSize = 14.sp,
-            color = TextSecondary
+            color = colors.textSecondary
         )
     }
 }
@@ -1042,7 +1047,7 @@ fun ErrorStateView(
         Text(
             text = message,
             fontSize = 14.sp,
-            color = Color.Red,
+            color = Color(0xFFDC2626),
             fontWeight = FontWeight.Medium
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -1068,6 +1073,7 @@ fun EmptyStateView(
     actionText: String? = null,
     onAction: (() -> Unit)? = null
 ) {
+    val colors = LocalAgriXCustomColors.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1078,7 +1084,7 @@ fun EmptyStateView(
             modifier = Modifier
                 .size(60.dp)
                 .clip(CircleShape)
-                .background(AgriXGreenLight),
+                .background(colors.cardGreenBg),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -1093,7 +1099,7 @@ fun EmptyStateView(
             text = message,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = TextPrimary
+            color = colors.textPrimary
         )
         if (actionText != null && onAction != null) {
             Spacer(modifier = Modifier.height(16.dp))

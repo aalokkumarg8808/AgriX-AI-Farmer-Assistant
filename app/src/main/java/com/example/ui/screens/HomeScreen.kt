@@ -65,6 +65,8 @@ fun HomeScreen(
     val fields by viewModel.farmFields.collectAsState()
     val colors = LocalAgriXCustomColors.current
 
+    val locationStatus by viewModel.locationStatus.collectAsState()
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -74,12 +76,17 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+        if (weatherState !is UiState.Success &&
+            (locationStatus is com.example.data.location.LocationStatus.Initial ||
+                    locationStatus is com.example.data.location.LocationStatus.RequestingPermission)
+        ) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
             )
-        )
+        }
     }
 
     val rawName = userProfile?.fullName ?: ""

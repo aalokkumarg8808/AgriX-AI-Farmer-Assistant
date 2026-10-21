@@ -1,18 +1,37 @@
+# IntelliJ / Android Studio
 *.iml
-.gradle
-.kotlin
-/local.properties
+.idea/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+# Gradle & Kotlin build caches
+.gradle/
+.kotlin/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local configuration & secrets (NEVER commit)
 local.properties
+/local.properties
 .env
+.env.*
+!.env.example
+
+# Keystores & signing credentials (NEVER commit private keys)
+*.jks
+*.keystore
 debug.keystore
+
+# OS & build artifacts
+.DS_Store
+*.apk
+*.aab
+*.ap_
+*.dex

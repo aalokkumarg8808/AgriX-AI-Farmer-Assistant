@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,13 +17,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Button
@@ -34,6 +36,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,9 +54,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CropRecommendation
+import com.example.data.model.RecommendationSource
+import com.example.localization.AppLanguage
 import com.example.localization.Localization
 import com.example.ui.components.ErrorStateView
 import com.example.ui.components.LoadingStateView
@@ -78,6 +85,7 @@ fun CropRecommendationScreen(
     val soilType by viewModel.soilTypeInput.collectAsState()
     val season by viewModel.seasonInput.collectAsState()
     val waterAvailability by viewModel.waterAvailabilityInput.collectAsState()
+    val landSize by viewModel.landSizeInput.collectAsState()
 
     val soilOptions = listOf("Loamy Soil", "Clay Soil", "Sandy Soil", "Black Soil", "Silt Soil")
     val seasonOptions = listOf("Kharif (Monsoon)", "Rabi (Winter)", "Zaid (Summer)")
@@ -178,6 +186,32 @@ fun CropRecommendationScreen(
                             surfaceColor = colors.surface
                         )
 
+                        // Land Size (Acres) Input
+                        OutlinedTextField(
+                            value = landSize,
+                            onValueChange = { viewModel.landSizeInput.value = it },
+                            label = { Text(Localization.getString("land_size", currentLanguage)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Terrain,
+                                    contentDescription = null,
+                                    tint = AgriXGreenPrimary
+                                )
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("crop_rec_land_size_input"),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = colors.surface,
+                                unfocusedContainerColor = colors.surface,
+                                focusedBorderColor = AgriXGreenPrimary,
+                                unfocusedBorderColor = colors.borderSubtle
+                            )
+                        )
+
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Button(
@@ -225,6 +259,7 @@ fun CropRecommendationScreen(
                     val friendlyMessage = when (state.message) {
                         "KEY_MISSING" -> Localization.getString("error_key_missing", currentLanguage)
                         "RATE_LIMIT" -> Localization.getString("error_rate_limit", currentLanguage)
+                        "INVALID_LAND_SIZE" -> Localization.getString("error_invalid_land_size", currentLanguage)
                         else -> state.message
                     }
                     ErrorStateView(
@@ -233,8 +268,46 @@ fun CropRecommendationScreen(
                     )
                 }
                 is UiState.Success -> {
+                    val isFallback = state.data.firstOrNull()?.source == RecommendationSource.LOCAL_RULE_BASED
+                    item {
+                        SourceIndicatorBanner(
+                            isFallback = isFallback,
+                            language = currentLanguage,
+                            colors = colors
+                        )
+                    }
                     items(state.data) { crop ->
                         CropRecommendationCard(crop = crop, colors = colors)
+                    }
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = colors.cardBlueBg,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Disclaimer",
+                                    tint = colors.cardBlueText,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .padding(top = 2.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = Localization.getString("crop_disclaimer", currentLanguage),
+                                    fontSize = 11.sp,
+                                    color = colors.textSecondary,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
                     }
                 }
                 else -> {}
@@ -243,6 +316,45 @@ fun CropRecommendationScreen(
             item {
                 Spacer(modifier = Modifier.height(30.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun SourceIndicatorBanner(
+    isFallback: Boolean,
+    language: AppLanguage,
+    colors: com.example.ui.theme.AgriXCustomColors
+) {
+    val label = if (isFallback) {
+        Localization.getString("source_local_fallback", language)
+    } else {
+        Localization.getString("source_ai", language)
+    }
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (isFallback) colors.cardOrangeBg else colors.cardGreenBg,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("crop_rec_source_banner")
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isFallback) Icons.Default.Info else Icons.Default.AutoAwesome,
+                contentDescription = label,
+                tint = if (isFallback) colors.cardOrangeText else colors.cardGreenText,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isFallback) colors.cardOrangeText else colors.cardGreenText
+            )
         }
     }
 }

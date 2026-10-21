@@ -96,7 +96,7 @@ The app supports direct calls to Gemini for local development when no backend UR
 
 ## Data and privacy notes
 
-- Local account profiles, farm fields, and tasks are stored on-device in Room/SQLite. This is **local app authentication**, not a cloud identity system; accounts do not automatically sync between devices.
+- Local account profiles, farm fields, and tasks are stored on-device in Room/SQLite. This is **local app authentication**, not a cloud identity system; accounts do not automatically sync between devices. Android app-data backup is disabled/excluded so local credentials and farm records are not intentionally backed up; clearing app storage or uninstalling can permanently remove them.
 - Weather requests may include the selected or current coordinates.
 - Location search and reverse geocoding send location/query information to OpenStreetMap Nominatim.
 - AI questions and selected plant images are sent to the configured AI endpoint (direct Gemini in development mode or your configured proxy).

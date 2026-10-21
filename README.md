@@ -105,6 +105,10 @@ The app supports direct calls to Gemini for local development when no backend UR
 
 See [SERVICES_MANIFEST.md](SERVICES_MANIFEST.md) for provider and configuration notes.
 
+## Public-readiness checklist
+
+Before changing repository visibility or distributing an APK, review [PUBLIC_RELEASE_CHECKLIST.md](PUBLIC_RELEASE_CHECKLIST.md). It tracks items that still require an explicit owner decision or build/device verification.
+
 ## Security
 
 Please do not publish API keys, keystores, signing passwords, real user databases, or private farmer information. The `.gitignore` is intended to exclude common local secrets and build artifacts, but it cannot remove a secret that was committed in an earlier revision.

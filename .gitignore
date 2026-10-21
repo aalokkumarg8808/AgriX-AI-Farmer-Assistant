@@ -1,14 +1,10 @@
 # IntelliJ / Android Studio
 *.iml
 .idea/
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+.vscode/
+.DS_Store
 
-# Gradle & Kotlin build caches
+# Gradle / Kotlin build output and caches
 .gradle/
 .kotlin/
 build/
@@ -17,21 +13,46 @@ captures/
 .externalNativeBuild/
 .cxx/
 
-# Local configuration & secrets (NEVER commit)
+# Local SDK / machine-specific configuration
 local.properties
-/local.properties
+**/local.properties
+
+# Local environment files (keep only the documented template)
 .env
 .env.*
 !.env.example
+!.env.*.example
 
-# Keystores & signing credentials (NEVER commit private keys)
+# Firebase / Google service configuration may contain project-specific identifiers
+# and should be reviewed before sharing.
+google-services.json
+
+# Signing credentials — never commit private signing material
 *.jks
 *.keystore
+*.p12
+*.pfx
+keystore.properties
+key.properties
 debug.keystore
+my-upload-key.jks
 
-# OS & build artifacts
-.DS_Store
+# Build packages and generated Android files
 *.apk
 *.aab
 *.ap_
 *.dex
+*.class
+
+# Local databases, backups, logs, crash dumps, and editor temporary files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+*.hprof
+hs_err_pid*
+*.bak
+*.swp
+*~

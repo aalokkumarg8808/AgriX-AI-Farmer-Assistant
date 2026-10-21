@@ -1,0 +1,6 @@
+{
+  "name": "AgriX AI",
+  "description": "AI-powered smart farming application for farmers providing real-time weather, crop recommendation, disease detection, AI farming assistant, and farm management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

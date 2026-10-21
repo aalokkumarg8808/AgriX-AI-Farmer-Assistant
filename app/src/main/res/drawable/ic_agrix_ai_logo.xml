@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Outer Soft Glow Background Badge -->
+    <path
+        android:fillColor="#E8F5E9"
+        android:pathData="M50,4 C24.6,4 4,24.6 4,50 C4,75.4 24.6,96 50,96 C75.4,96 96,75.4 96,50 C96,24.6 75.4,4 50,4 Z" />
+
+    <!-- Stylized Curved Furrows / Fields -->
+    <path
+        android:fillColor="#15803D"
+        android:pathData="M20,70 C35,60 65,60 80,70 C72,82 62,88 50,88 C38,88 28,82 20,70 Z" />
+
+    <!-- Left Sprout Leaf (Fresh Green) -->
+    <path
+        android:fillColor="#22C55E"
+        android:pathData="M50,58 C38,55 24,42 28,26 C42,26 52,38 50,58 Z" />
+
+    <!-- Right AI Sprout Leaf (Emerald Dark Green with Tech Contour) -->
+    <path
+        android:fillColor="#166534"
+        android:pathData="M50,58 C62,55 76,42 72,26 C58,26 48,38 50,58 Z" />
+
+    <!-- Stem / Central Crop Axis -->
+    <path
+        android:fillColor="#15803D"
+        android:pathData="M48,52 L52,52 L52,74 L48,74 Z" />
+
+    <!-- AI Tech Circuit Nodes & Interconnect Lines (Representing Smart AI Agriculture) -->
+    <!-- Center Node -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,38 C51.6,38 53,39.4 53,41 C53,42.6 51.6,44 50,44 C48.4,44 47,42.6 47,41 C47,39.4 48.4,38 50,38 Z" />
+
+    <!-- Left Tech Node -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,34 C39.1,34 40,34.9 40,36 C40,37.1 39.1,38 38,38 C36.9,38 36,37.1 36,36 C36,34.9 36.9,34 38,34 Z" />
+
+    <!-- Right Tech Node -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,34 C63.1,34 64,34.9 64,36 C64,37.1 63.1,38 62,38 C60.9,38 60,37.1 60,36 C60,34.9 60.9,34 62,34 Z" />
+
+    <!-- Circuit Connecting Lines -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M38,36 L50,41 L62,36 M50,41 L50,55" />
+
+    <!-- Top Sunburst / Golden Smart Agriculture Arc -->
+    <path
+        android:fillColor="#EAB308"
+        android:pathData="M50,14 C52.2,14 54,15.8 54,18 C54,20.2 52.2,22 50,22 C47.8,22 46,20.2 46,18 C46,15.8 47.8,14 50,14 Z" />
+
+</vector>

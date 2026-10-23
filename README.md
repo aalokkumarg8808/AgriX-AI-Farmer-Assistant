@@ -1,96 +1,66 @@
 # AgriX AI — Smart Farmer Assistant
 
-AgriX AI is an Android application built with **Kotlin**, **Jetpack Compose (Material 3)**, **Room SQLite**, and **Retrofit** to assist farmers with real-time localized weather and 5-day forecasts, farm and field management, AI crop recommendations, leaf disease analysis, and an interactive multilingual AI Farming Assistant (English, Hindi, Hinglish, and Punjabi UI localization).
+AgriX AI is an Android smart-farming assistant built with Kotlin, Jetpack Compose, Room SQLite, and Retrofit. It includes local farm management, localized weather, crop recommendations, plant disease analysis, and a multilingual AI farming assistant.
 
----
+## Features
 
-## Key Features
+- Multilingual farming assistant (English, Hindi, and Hinglish).
+- Plant disease analysis with uncertainty messaging and agricultural safety disclaimers.
+- Crop recommendations with local rule-based fallback when AI is unavailable.
+- Current weather and a five-day forecast using Open-Meteo.
+- Farm profile, fields, and tasks stored locally in Room.
+- On-device account management with salted PBKDF2-HMAC-SHA256 password hashes.
 
-1. **Multilingual AI Farming Assistant (`gemini-3.1-flash-lite`)**
-   - Automatically detects and replies in the language of the farmer's message (**English**, **Hindi in Devanagari**, or **Hinglish in Roman script**) independently of the app's UI language.
-   - Adapts response length dynamically: concise 1–3 sentence answers for simple questions and structured step-by-step guidance when detail is requested.
-2. **Plant Disease Analysis**
-   - Supports both **Gallery Photo Picker** and **Live Camera Capture** with runtime permission handling.
-   - Memory-safe bitmap sampling (`inSampleSize`) and automatic downscaling (`<= 1024px`) before upload.
-   - Strict confidence validation (`0..100%`), explicit **Uncertain Diagnosis (`< 60%`)** warnings, and mandatory agricultural safety disclaimers before applying chemical pesticides or fungicides.
-3. **Crop Recommendation Engine**
-   - Validates farm inputs (land size bounds `0.01..100,000` acres, soil type, water availability, season).
-   - Clearly badges results as **AI-Generated Recommendation** or **Local Rule-Based Fallback** (season-, soil-, and water-aware local agronomic rules for Kharif, Rabi, and Zaid).
-4. **Live Weather & 5-Day Forecast**
-   - Powered by Open-Meteo with explicit Celsius (`°C`) and `km/h` units, real 5-day daily high/low temperatures, weather conditions, and rain probability.
-   - Clearly distinguishes between **Live GPS Location** and **Manual / Profile Location**, with Nominatim reverse geocoding rate-limited to 1 req/sec and cached in memory.
-5. **Multi-Account Local Authentication & Farm Management**
-   - Strict per-user isolation of `UserProfile`, `FarmField`, and `FarmTask` records in Room SQLite.
-   - Passwords hashed with `PBKDF2WithHmacSHA256` (65,536 iterations, 16-byte random salt, constant-time verification) and automatic on-login upgrade for legacy SHA-256 hashes.
-   - Full support for password change and complete account deletion (wiping user profile, fields, tasks, and credentials).
+## Public-client security model
 
----
+**The Android client intentionally does not contain a Gemini API key.** AI features require an HTTPS backend proxy configured with `AI_BACKEND_BASE_URL`. The proxy must keep `GEMINI_API_KEY` in server-side secrets, authenticate or otherwise control callers, enforce request and cost limits, validate inputs, and avoid logging sensitive prompts or image contents.
 
-## Project Setup & Configuration
+Do not configure a real `GEMINI_API_KEY` in Android `BuildConfig`, resources, source files, or APK assets. Any secret included in a distributed APK can be extracted. The sample `.env.example` contains placeholders only.
 
-### 1. Environment Variables (`.env`)
+## External services and data
 
-Copy `.env.example` to `.env` in the project root (or configure keys in the **AI Studio Secrets Panel**):
+- **Gemini via your backend proxy:** user-submitted prompts and, for disease analysis, selected plant images may be sent for AI processing. Configure and disclose your proxy's handling, retention, access controls, and privacy terms before public distribution.
+- **Open-Meteo:** weather requests use location coordinates or a user-entered location.
+- **OpenStreetMap Nominatim:** coordinates and location-search terms are used for geocoding under its public usage policy.
+- **Local storage:** account credentials (salted and hashed), profile, fields, and tasks are stored in the device's Room database. There is no cloud account sync in this project. Uninstalling the app or clearing storage deletes local data.
 
-```bash
-cp .env.example .env
-```
+Review the privacy policy and service terms for current policies before shipping.
 
-Edit `.env` according to your deployment mode:
+## Prerequisites
 
-- **Option A — Production Backend Proxy (Recommended for distributed APKs):**
-  Set `AI_BACKEND_BASE_URL` to your backend proxy URL (for example, a Cloud Run / Cloudflare Worker / Node.js proxy that holds your `GEMINI_API_KEY` server-side and forwards requests to `v1beta/models/gemini-3.1-flash-lite:generateContent`):
-  ```dotenv
-  AI_BACKEND_BASE_URL=https://your-agrix-ai-proxy.example.com
-  GEMINI_API_KEY=NONE
-  ```
-  > **Security Warning:** Any secret compiled into Android `BuildConfig` or APK resources can be extracted by decompiling the APK. Using `AI_BACKEND_BASE_URL` keeps your Gemini API key 100% off the client device.
+- Android Studio with a compatible Android SDK.
+- JDK required by the project's configured Android Gradle Plugin / Gradle version.
+- A deployed, HTTPS-enabled AgriX AI backend proxy for AI features.
 
-- **Option B — Local Development / Direct Client Key:**
-  For local testing without a proxy server, keep `AI_BACKEND_BASE_URL=NONE` and provide a restricted Gemini API key in `.env`:
-  ```dotenv
-  AI_BACKEND_BASE_URL=NONE
-  GEMINI_API_KEY=your_actual_gemini_api_key_here
-  ```
+## Configuration
 
----
+1. Copy `.env.example` to `.env` for local configuration.
+2. Set `AI_BACKEND_BASE_URL` to your real HTTPS backend URL, including the trailing slash.
+3. Do not place the Gemini key in the Android app. Set `GEMINI_API_KEY` only in the backend's server-side secret manager.
+4. Keep local `.env`, keystore files, and signing credentials out of Git.
 
-## Authentication Architecture (Local On-Device Accounts)
+AI calls are intentionally disabled until a valid HTTPS backend is configured. Weather and geocoding do not require the Gemini backend.
 
-AgriX AI uses **Local On-Device Authentication** backed by Android Jetpack Room (`users` table) and `SharedPreferences` session state:
-- Accounts created in the app are stored locally on the device and do **not** sync across multiple phones or cloud servers.
-- Passwords are salted and hashed using `PBKDF2WithHmacSHA256` (`SecurityUtils.kt`).
-- Each logged-in account has isolated farm profile, field, and task records (`userId` foreign/logical key).
+## Build and verification
 
----
-
-## Building, Testing, and Linting
-
-### Standard Environment (Gradle CLI)
-In the cloud container environment, run Gradle directly:
+The repository includes Gradle wrapper configuration. Generate/restore the wrapper scripts and JAR for the configured Gradle version if they are not present, then run:
 
 ```bash
-# Assemble debug APK
-gradle :app:assembleDebug
-
-# Run unit and Robolectric tests
-gradle :app:testDebugUnitTest
-
-# Run Android Lint
-gradle :app:lintDebug
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+./gradlew :app:lintDebug
 ```
 
-If using a local workstation with the Gradle wrapper:
-```bash
-./gradlew assembleDebug
-./gradlew testDebugUnitTest
-./gradlew lintDebug
-```
+For a distributable release, configure release signing credentials through environment variables or secure CI secrets, then build and verify a signed release bundle. Never commit the keystore or passwords.
 
----
+## Privacy and security
 
-## Known Limitations & Platform Notes
+Read [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md) before using or distributing the application. The privacy draft must be reviewed and updated with accurate operator/contact details and the actual backend's data practices before release.
 
-1. **Local-Only Accounts**: User accounts and farm data are stored in local Room SQLite (`agrix_database`). Uninstalling the app or clearing app storage removes local accounts unless backed up.
-2. **Advisory Nature of AI Diagnosis**: AI crop and leaf disease analyses are for informational and educational decision support only. Always consult a certified local agronomist or Krishi Vigyan Kendra (KVK) before applying chemical pesticides or fertilizers.
-3. **Signing Configuration in AI Studio Container**: The AI Studio build environment manages `debug.keystore` automatically at build time. For external release builds outside AI Studio, supply signing credentials via secure CI environment variables rather than committing keystore files to Git.
+## Agricultural safety
+
+AI output is informational decision support and can be incorrect. Disease identification can be uncertain. Consult a qualified local agricultural officer or Krishi Vigyan Kendra before applying pesticides, fungicides, or other chemicals.
+
+## License
+
+No open-source licence is granted until the project owner selects and adds a licence file. Do not assume reuse rights from repository visibility alone.

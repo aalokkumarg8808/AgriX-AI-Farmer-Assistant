@@ -1,14 +1,6 @@
 # IntelliJ / Android Studio
 *.iml
 .idea/
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-
-# Gradle & Kotlin build caches
 .gradle/
 .kotlin/
 build/
@@ -16,22 +8,33 @@ app/build/
 captures/
 .externalNativeBuild/
 .cxx/
-
-# Local configuration & secrets (NEVER commit)
 local.properties
-/local.properties
 .env
 .env.*
 !.env.example
 
-# Keystores & signing credentials (NEVER commit private keys)
+# Google/Firebase project configuration (review before intentionally adding)
+google-services.json
+**/google-services.json
+
+# Signing credentials and private keys
 *.jks
 *.keystore
 debug.keystore
+my-upload-key.jks
+*.pem
+*.p12
+*.key
 
-# OS & build artifacts
+# Build artifacts
 .DS_Store
 *.apk
 *.aab
 *.ap_
 *.dex
+
+# Local databases and logs
+*.db
+*.sqlite
+*.sqlite3
+*.log

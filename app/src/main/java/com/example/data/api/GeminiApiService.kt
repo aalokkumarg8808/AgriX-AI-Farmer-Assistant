@@ -40,7 +40,8 @@ data class GeminiGenerationConfig(
 data class GeminiRequest(
     @Json(name = "contents") val contents: List<GeminiContent>,
     @Json(name = "systemInstruction") val systemInstruction: GeminiContent? = null,
-    @Json(name = "generationConfig") val generationConfig: GeminiGenerationConfig? = GeminiGenerationConfig(maxOutputTokens = 1000, temperature = 0.7f)
+    @Json(name = "generationConfig") val generationConfig: GeminiGenerationConfig? =
+        GeminiGenerationConfig(maxOutputTokens = 1000, temperature = 0.7f)
 )
 
 @JsonClass(generateAdapter = true)
@@ -63,86 +64,64 @@ interface GeminiApiService {
 }
 
 /**
- * Gemini API Client supporting two execution modes:
+ * Gemini API client for a public Android application.
  *
- * 1. **Production Backend Proxy Mode (Recommended)**:
- *    When `BuildConfig.AI_BACKEND_BASE_URL` is configured (e.g. `https://your-backend.example.com/`),
- *    requests are routed to the backend proxy without sending any client-side API key (`apiKey = null`).
- *    The backend holds `GEMINI_API_KEY` exclusively in server-side environment secrets.
- *
- * 2. **Direct Client Mode (Local Prototype / AI Studio Preview Fallback)**:
- *    When `AI_BACKEND_BASE_URL` is blank, requests are sent directly to
- *    `https://generativelanguage.googleapis.com/` using `BuildConfig.GEMINI_API_KEY`.
- *    WARNING: Any value compiled into Android `BuildConfig` or an APK is extractable by decompiling
- *    the binary. Direct mode should only be used for local development/testing with restricted keys.
+ * Production builds MUST be configured with an HTTPS backend proxy. Direct API-key
+ * authentication is deliberately disabled in this client because values packaged in
+ * an APK can be extracted. The proxy must keep its Gemini key server-side and enforce
+ * authentication, request limits, and abuse protection.
  */
 object GeminiApiClient {
-    private const val DIRECT_BASE_URL = "https://generativelanguage.googleapis.com/"
     const val DEFAULT_MODEL = "gemini-3.1-flash-lite"
     const val MAX_USER_PROMPT_CHARS = 2_000
 
+    private const val CONFIGURED_BACKEND_URL = BuildConfig.AI_BACKEND_BASE_URL
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    fun getBackendBaseUrl(): String {
-        return try {
-            val raw = BuildConfig::class.java.getDeclaredField("AI_BACKEND_BASE_URL").get(null) as? String ?: ""
-            val trimmed = raw.trim()
-            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-                if (trimmed.endsWith("/")) trimmed else "$trimmed/"
-            } else {
-                ""
-            }
-        } catch (e: Exception) {
-            ""
+    private fun validatedBackendUrl(): String {
+        val value = CONFIGURED_BACKEND_URL.trim()
+        require(value.startsWith("https://", ignoreCase = true)) {
+            "AI backend is not configured. Set AI_BACKEND_BASE_URL to an HTTPS endpoint."
         }
+        require(value.endsWith("/")) {
+            "AI backend URL must end with '/'."
+        }
+        return value
     }
 
-    fun isUsingBackendProxy(): Boolean = getBackendBaseUrl().isNotEmpty()
-
     val service: GeminiApiService by lazy {
-        val baseUrl = getBackendBaseUrl().ifEmpty { DIRECT_BASE_URL }
         Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(validatedBackendUrl())
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create())
             .build()
             .create(GeminiApiService::class.java)
     }
 
-    fun getApiKey(): String {
-        return try {
-            BuildConfig.GEMINI_API_KEY.trim()
-        } catch (e: Exception) {
-            ""
-        }
+    /** Never read a packaged Gemini key; public clients must use the configured proxy. */
+    fun getApiKey(): String = ""
+
+    fun getBackendBaseUrl(): String = try {
+        validatedBackendUrl()
+    } catch (_: IllegalArgumentException) {
+        ""
     }
 
-    /**
-     * Returns true if either a backend proxy URL is configured OR a non-placeholder local API key is set.
-     */
-    fun isConfigured(): Boolean {
-        if (isUsingBackendProxy()) return true
-        val key = getApiKey()
-        return key.isNotBlank() && key != "MY_GEMINI_API_KEY" && key != "YOUR_API_KEY" && key != "NONE"
-    }
+    fun isUsingBackendProxy(): Boolean = getBackendBaseUrl().isNotBlank()
 
-    /**
-     * Executes a Gemini generation request via the configured backend proxy (if set) or direct API.
-     * Never exposes the API key in thrown exceptions or logs.
-     */
+    fun isConfigured(): Boolean = isUsingBackendProxy()
+
     suspend fun executeGenerateContent(
         request: GeminiRequest,
         model: String = DEFAULT_MODEL
     ): GeminiResponse {
-        val keyParam = if (isUsingBackendProxy()) null else getApiKey()
-        return service.generateContent(
-            model = model,
-            apiKey = keyParam,
-            request = request
-        )
+        check(isConfigured()) {
+            "AI backend is not configured. Set AI_BACKEND_BASE_URL before building."
+        }
+        return service.generateContent(model = model, apiKey = null, request = request)
     }
 }

@@ -75,7 +75,7 @@ object GeminiApiClient {
     const val DEFAULT_MODEL = "gemini-3.1-flash-lite"
     const val MAX_USER_PROMPT_CHARS = 2_000
 
-    private const val CONFIGURED_BACKEND_URL = BuildConfig.AI_BACKEND_BASE_URL
+    private val configuredBackendUrl: String = BuildConfig.AI_BACKEND_BASE_URL
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -83,7 +83,7 @@ object GeminiApiClient {
         .build()
 
     private fun validatedBackendUrl(): String {
-        val value = CONFIGURED_BACKEND_URL.trim()
+        val value = configuredBackendUrl.trim()
         require(value.startsWith("https://", ignoreCase = true)) {
             "AI backend is not configured. Set AI_BACKEND_BASE_URL to an HTTPS endpoint."
         }

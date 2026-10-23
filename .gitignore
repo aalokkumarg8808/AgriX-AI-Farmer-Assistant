@@ -13,13 +13,18 @@ local.properties
 .env.*
 !.env.example
 
-# Signing credentials and keystores
+# Google/Firebase project configuration (review before intentionally adding)
+google-services.json
+**/google-services.json
+
+# Signing credentials and private keys
 *.jks
 *.keystore
 debug.keystore
 my-upload-key.jks
 *.pem
 *.p12
+*.key
 
 # Build artifacts
 .DS_Store
